@@ -227,7 +227,7 @@ function agw_admin_notice_css() {
 
 if ( is_admin() ) {
 
-    add_action('plugins_loaded', 'agw_admin_notice_init');
+    add_action( 'plugins_loaded', 'agw_admin_notice_init' );
     add_action( 'admin_init', 'agw_admin_notice_settings_register' );
     add_action( 'admin_menu', 'agw_admin_notice_settings_options' );
     add_filter( 'plugin_action_links_' . plugin_basename(__FILE__), 'agw_admin_notice_action_links' );
