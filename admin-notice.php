@@ -53,9 +53,6 @@ function agw_admin_notice_deactivation() {
 function agw_admin_notice_uninstall() {
     if ( ! current_user_can( 'activate_plugins' ) )
         return;
-    check_admin_referer( 'bulk-plugins' );
-    if ( __FILE__ != WP_UNINSTALL_PLUGIN )
-        return;
     delete_option( 'agw_admin_notice_msg' );
     delete_option( 'agw_admin_notice_priority' );
     delete_option( 'agw_admin_notice_enable' );
