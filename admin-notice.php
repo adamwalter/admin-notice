@@ -1,6 +1,7 @@
 <?php
 /*
     Plugin Name: Admin Notice
+    Plugin URI: https://github.com/adamwalter/admin-notice
     Description: Display a custom notice to all users in the admin area
     Version: 1.0
     Author: Adam Walter
