@@ -1,237 +1,352 @@
 <?php
 /*
-    Plugin Name: Admin Notice
-    Plugin URI: https://github.com/adamwalter/admin-notice
-    Description: Display a custom notice to all users in the admin area
-    Version: 1.0
-    Author: Adam Walter
-    Author URI: http://adamwalter.com
-    Text Domain: admin-notice
-    License: GPLv2
-
-    Copyright 2015  ADAM WALTER  (email : hello@adamwalter.com)
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License, version 2, as
-    published by the Free Software Foundation.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+	Plugin Name: Admin Notice
+	Plugin URI: https://github.com/adamwalter/admin-notice
+	Description: Displays a custom notice to all users in the admin area.
+	Version: 1.1
+	Requires at least: 5.4.1
+	Requires PHP: 7.0
+	Author: Adam Walter
+	Author URI: https://adamwalter.com/
+	Text Domain: admin-notice
 */
 
-defined( 'ABSPATH' ) or die( 'Do not access this file directly.' );
-
-/**
- *  Setup
- */
-
-function agw_admin_notice_init() {
-     $plugin_dir = basename( dirname( __FILE__ ) . '/languages' );
-     load_plugin_textdomain( 'admin-notice', false, $plugin_dir );
+if (! defined('ABSPATH')) {
+	exit;
 }
 
-function agw_admin_notice_activation() {
-    if ( ! current_user_can( 'activate_plugins' ) )
-        return;
-    $plugin = isset( $_REQUEST['plugin'] ) ? $_REQUEST['plugin'] : '';
-    check_admin_referer( "activate-plugin_{$plugin}" );
+class AGW_Admin_Notice {
+
+	/**
+	 * The notice message.
+	 *
+	 * @var    string
+	 * @access private
+	 * @since  1.1
+	 */
+	private $message;
+
+	/**
+	 * The notice style.
+	 *
+	 * @var    string
+	 * @access private
+	 * @since  1.1
+	 */
+	private $style;
+
+	/**
+	 * The notice enable status.
+	 *
+	 * @var    string
+	 * @access private
+	 * @since  1.1
+	 */
+	private $enable;
+
+	public function __construct() {
+		add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_action_link']);
+		add_action('admin_menu', [$this, 'add_settings_page'], 100);
+		add_action('admin_init', [$this, 'settings_init']);
+		add_action('admin_notices', [$this, 'add_admin_notice']);
+		add_action('admin_head', [$this, 'print_css']);
+	}
+
+	/**
+	 * Adds link to plugin settings.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return array Links
+	 */
+	public function add_action_link($links) {
+		$custom_link = [
+			'<a href="' . admin_url('options-general.php?page=admin_notice') . '">Settings</a>',
+		];
+		return array_merge($custom_link, $links);
+	}
+
+	/**
+	 * Adds plugin settings page.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return void
+	 */
+	public function add_settings_page() {
+
+		add_submenu_page(
+			'options-general.php',
+			'Admin Notice',
+			'Admin Notice',
+			'manage_options',
+			'admin_notice',
+			[$this, 'render_settings_page']
+		);
+
+	}
+
+	/**
+	 * Registers settings, sections, and fields.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return void
+	 */
+	public function settings_init() {
+
+		register_setting(
+			'agw_admin_notice_settings_group',
+			'agw_admin_notice_msg',
+			[$this, 'sanitize_wysiwyg']
+		);
+
+		register_setting(
+			'agw_admin_notice_settings_group',
+			'agw_admin_notice_style',
+			[$this, 'sanitize_option']
+		);
+
+		register_setting(
+			'agw_admin_notice_settings_group',
+			'agw_admin_notice_enable',
+			[$this, 'sanitize_option']
+		);
+
+		add_settings_section(
+			'agw_admin_notice_settings',
+			'Settings',
+			[$this, 'settings_info'],
+			'admin_notice'
+		);
+
+		add_settings_field(
+			'agw_admin_notice_enable',
+			'Enable Notice',
+			[$this, 'enable_field'],
+			'admin_notice',
+			'agw_admin_notice_settings'
+		);
+
+		add_settings_field(
+			'agw_admin_notice_msg',
+			'Message',
+			[$this, 'message_field'],
+			'admin_notice',
+			'agw_admin_notice_settings'
+		);
+
+		add_settings_field(
+			'agw_admin_notice_style',
+			'Style',
+			[$this, 'style_field'],
+			'admin_notice',
+			'agw_admin_notice_settings'
+		);
+	}
+
+	/**
+	 * Prints the settings page.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return void
+	 */
+	public function render_settings_page() {
+		$this->message = get_option('agw_admin_notice_msg');
+		$this->style = get_option('agw_admin_notice_style');
+		$this->enable = get_option('agw_admin_notice_enable');
+		?>
+		<div class="wrap">
+			<h2>Admin Notice</h2>
+			<form method="post" action="options.php">
+			<?php
+				settings_fields('agw_admin_notice_settings_group');
+				do_settings_sections('admin_notice');
+				submit_button('Save');
+			?>
+			</form>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Prints the settings page description.
+	 *
+	 * @since 1.1
+	 * @return void
+	 */
+	public function settings_info() {
+		return null;
+	}
+
+	/**
+	 * Prints the Enable Notice setting field.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return void
+	 */
+	public function enable_field() {
+
+		if (isset($this->enable)) {
+			$enable = esc_attr($this->enable);
+		} else {
+			$enable = '';
+		}
+
+		$checked = ($enable === '1') ? 'checked="checked"' : '';
+
+		printf(
+			'<label><input id="agw_admin_notice_enable" value="1" name="agw_admin_notice_enable" type="checkbox" %s>%s</label><br>',
+			$checked,
+			__('Enable', 'admin-notice')
+		);
+	}
+
+	/**
+	 * Prints the Message setting field.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return void
+	 */
+	public function message_field() {
+
+		if (isset($this->message)) {
+			$msg = wp_kses_post($this->message);
+		} else {
+			$msg = '';
+		}
+
+		wp_editor($msg, 'agw_admin_notice_msg', [
+			'textarea_name' => 'agw_admin_notice_msg',
+			'media_buttons' => false,
+			'textarea_rows' => 6,
+			'quicktags'     => true,
+			'teeny'         => true,
+		]);
+	}
+
+	/**
+	 * Prints the Style setting field.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return void
+	 */
+	public function style_field() {
+
+		if (isset($this->style)) {
+			$style = esc_attr($this->style);
+		} else {
+			$style = '';
+		}
+
+		$values = ['error', 'info', 'success', 'warning'];
+		$options = '';
+
+		foreach ($values as $value) {
+			$selected = ($value === $style) ? 'selected="selected"' : '';
+			$options .= sprintf(
+				'<option value="%s" %s>%s</option>',
+				esc_attr($value),
+				$selected,
+				esc_html(ucfirst($value))
+			);
+		}
+
+		printf(
+			'<select id="agw_admin_notice_style" name="agw_admin_notice_style">%s</select>',
+			$options
+		);
+	}
+
+	/**
+	 * Sanitizes radio and select fields.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @param string $input The value to sanitize.
+	 * @return string The sanitized value.
+	 */
+	public function sanitize_option($input) {
+		$new_input = '';
+
+		if ($input !== null) {
+			$new_input = sanitize_text_field($input);
+		}
+
+		return $new_input;
+	}
+
+	/**
+	 * Sanitizes WYSIWYG fields.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @param string $input The value to sanitize.
+	 * @return string The sanitized value.
+	 */
+	public function sanitize_wysiwyg($input = null) {
+		$new_input = '';
+
+		if ($input !== null) {
+			$new_input = wp_kses_post($input);
+		}
+
+		return $new_input;
+	}
+
+	/**
+	 * Prints the admin notice.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return void
+	 */
+	function add_admin_notice() {
+		$msg = get_option('agw_admin_notice_msg');
+		$enabled = get_option('agw_admin_notice_enable');
+		$style = get_option('agw_admin_notice_style');
+		$class = "agw-admin-notice notice notice-{$style}";
+
+		if ($msg !== '' && $enabled === '1') {
+
+			printf(
+				'<div class="%s"><p>%s</p></div>',
+				esc_attr($class),
+				wp_kses_post(wpautop($msg))
+			);
+		}
+	}
+
+	/**
+	 * Prints required CSS.
+	 *
+	 * @since 1.1
+	 * @access public
+	 * @return void
+	 */
+	function print_css() {
+
+		echo "<style>
+.agw-admin-notice ul {
+	list-style: disc;
+	margin-left: 2em;
 }
 
-function agw_admin_notice_deactivation() {
-    if ( ! current_user_can( 'activate_plugins' ) )
-        return;
-    $plugin = isset( $_REQUEST['plugin'] ) ? $_REQUEST['plugin'] : '';
-    check_admin_referer( "deactivate-plugin_{$plugin}" );
+.agw-admin-notice blockquote p {
+	padding-left: 0.75em;
+	border-left: 2px solid #444;
+	font-style: italic;
 }
 
-function agw_admin_notice_uninstall() {
-    if ( ! current_user_can( 'activate_plugins' ) )
-        return;
-    delete_option( 'agw_admin_notice_msg' );
-    delete_option( 'agw_admin_notice_priority' );
-    delete_option( 'agw_admin_notice_enable' );
+.agw-admin-notice p:empty  {
+    display: none;
+}
+</style>\n";
+	}
 }
 
-register_activation_hook( __FILE__, 'agw_admin_notice_activation' );
-register_deactivation_hook( __FILE__, 'agw_admin_notice_deactivation' );
-register_uninstall_hook( __FILE__, 'agw_admin_notice_uninstall' );
-
-/**
- *  Options
- */
-
-function agw_admin_notice_settings_register() {
-    register_setting( 'agw_admin_notice_settings_group', 'agw_admin_notice_msg', 'agw_admin_notice_msg_validate' );
-    register_setting( 'agw_admin_notice_settings_group', 'agw_admin_notice_priority' );
-    register_setting( 'agw_admin_notice_settings_group', 'agw_admin_notice_enable' );
-}
-
-function agw_admin_notice_settings_options() {
-    add_dashboard_page(
-        'Admin Notice',
-        'Admin Notice',
-        'edit_dashboard',
-        'admin_notice',
-        'agw_admin_notice_settings_page'
-    );
-}
-
-function agw_admin_notice_settings_page() {
-?>
-<div class="wrap">
-<h2><?php _e( 'Admin Notice', 'admin-notice' ); ?></h2>
-<form method="post" action="options.php">
-
-    <?php settings_fields( 'agw_admin_notice_settings_group' ); ?>
-    <?php do_settings_sections( 'agw_admin_notice_settings_group' ); ?>
-
-    <table class="form-table">
-        <tr valign="top">
-            <th scope="row"><label for="agw_admin_notice_msg"><?php _e( 'Message', 'admin-notice' ); ?></label></th>
-            <td>
-                <?php
-                $message = get_option( 'agw_admin_notice_msg' );
-                $editor_args = array(
-                    'textarea_name' => 'agw_admin_notice_msg',
-                    'media_buttons' => false,
-                    'textarea_rows' => 6,
-                    'quicktags' => false,
-                    'tinymce' => array(
-                        'toolbar1' => 'bold,italic,underline,link,unlink,removeformat,undo,redo',
-                        'toolbar2' => ''
-                    )
-                );
-                wp_editor( $message, 'agw_admin_notice_msg', $editor_args );
-                ?>
-            </td>
-        </tr>
-        <tr valign="top">
-            <th scope="row"><label for="agw_admin_notice_priority"><?php _e( 'Priority', 'admin-notice' ); ?></label></th>
-            <td>
-                <?php $priority = get_option( 'agw_admin_notice_priority', 'high' ); ?>
-                <label><input type="radio" id="agw_admin_notice_priority" name="agw_admin_notice_priority" <?php echo ( $priority === 'high' ? 'checked="checked"' : '' ); ?> value="high"><?php _e( 'High', 'admin-notice' ); ?></label>
-                <label><input type="radio" id="agw_admin_notice_priority" name="agw_admin_notice_priority" <?php echo ( $priority === 'medium' ? 'checked="checked"' : '' ); ?> value="medium"><?php _e( 'Medium', 'admin-notice' ); ?></label>
-                <label><input type="radio" id="agw_admin_notice_priority" name="agw_admin_notice_priority" <?php echo ( $priority === 'low' ? 'checked="checked"' : '' ); ?> value="low"><?php _e( 'Low', 'admin-notice' ); ?></label>
-            </td>
-        </tr>
-        <tr valign="top">
-            <th scope="row"><label for="agw_admin_notice_enable"><?php _e('', 'admin-notice'); ?>Enable/Disable</label></th>
-            <td>
-                <?php $enabled = get_option( 'agw_admin_notice_enable', 'false' ); ?>
-                <label><input type="radio" id="agw_admin_notice_enable" name="agw_admin_notice_enable" <?php echo ( $enabled === 'true' ? 'checked="checked"' : '' ); ?> value="true" /><?php _e( 'Enable', 'admin-notice' ); ?></label>
-                <label><input type="radio" id="agw_admin_notice_enable" name="agw_admin_notice_enable" <?php echo ( $enabled === 'false' ? 'checked="checked"' : '' ); ?> value="false" /><?php _e( 'Disable', 'admin-notice' ); ?></label>
-            </td>
-        </tr>
-    </table>
-
-    <?php submit_button(); ?>
-
-</form>
-</div>
-<?php }
-
-function agw_admin_notice_msg_validate( $input ) {
-
-    $allowed_html = array(
-        'a' => array(
-            'href' => array(),
-            'title' => array(),
-            'target' => array()
-        ),
-        'em' => array(),
-        'strong' => array(),
-        'span' => array(
-            'style' => array()
-        )
-    );
-    $allowed_protocols = array(
-        'http' => array(),
-        'https' => array(),
-        'mailto' => array()
-    );
-
-    $input = wp_kses( $input, $allowed_html, $allowed_protocols );
-
-    return $input;
-}
-
-function agw_admin_notice_action_links( $links ) {
-    $custom_links = array(
-         '<a href="' . admin_url( 'index.php?page=admin_notice' ) . '">Settings</a>',
-         );
-    return array_merge( $custom_links, $links );
-}
-
-/**
- *  Output
- */
-
-function agw_admin_notice() {
-
-    $message = get_option( 'agw_admin_notice_msg' );
-    $enabled = get_option( 'agw_admin_notice_enable' );
-    $priority = get_option( 'agw_admin_notice_priority' );
-
-    if ( $message !== '' && $enabled === 'true' ) { ?>
-
-        <div class="agw-admin-notice-wrap">
-            <div class="agw-admin-notice agw-admin-notice-<?php echo esc_attr($priority); ?>">
-                <p><?php echo $message; ?></p>
-            </div>
-        </div>
-
-    <?php }
-}
-
-function agw_admin_notice_css() {
-
-    echo "<style>
-        .agw-admin-notice-wrap {
-            margin: 2.75em 20px 0 2px;
-        }
-        .agw-admin-notice {
-            padding: 1em 1.25em;
-            background: #fff;
-            -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-                    box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-        }
-        .agw-admin-notice p {
-            margin: 0;
-            font-size: 1em;
-        }
-        .agw-admin-notice-high,
-        .agw-admin-notice-high a,
-        .agw-admin-notice-medium,
-        .agw-admin-notice-medium a,
-        .agw-admin-notice-low,
-        .agw-admin-notice-low a {
-            color: #fff;
-        }
-        .agw-admin-notice-high {
-            background-color: #dd3d36;
-        }
-        .agw-admin-notice-medium {
-            background-color: #ffba00;
-        }
-        .agw-admin-notice-low {
-            background-color: #7ad03a;
-        }
-    </style>\n";
-}
-
-if ( is_admin() ) {
-
-    add_action( 'plugins_loaded', 'agw_admin_notice_init' );
-    add_action( 'admin_init', 'agw_admin_notice_settings_register' );
-    add_action( 'admin_menu', 'agw_admin_notice_settings_options' );
-    add_filter( 'plugin_action_links_' . plugin_basename(__FILE__), 'agw_admin_notice_action_links' );
-    add_action( 'admin_notices', 'agw_admin_notice' );
-    add_action( 'admin_head', 'agw_admin_notice_css' );
-
-}
+new AGW_Admin_Notice();
