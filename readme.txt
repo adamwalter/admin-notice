@@ -4,7 +4,7 @@ Tags: admin, backend, notice, alert
 Requires at least: 3.0.1
 Tested up to: 5.5
 Requires PHP: 7.0
-Stable tag: 1.1
+Stable tag: 1.2
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,6 +13,24 @@ Display a custom notice to all users in the WordPress admin.
 == Description ==
 
 Admin Notice is a very simple plugin that allows you to display custom notices in the WordPress admin that is visible to all users.
+
+Control over the notice text and styling is available from the plugin's settings page.
+
+Developers can use the `admin_notice_enable` hook to control the notice's visibility on a more granular level. The following example demonstrates how to show the notice only in the "Posts" area of the admin.
+
+```
+add_filter('admin_notice_enable', function($enabled) {
+
+	$screen = get_current_screen();
+
+	if (isset($screen->post_type) && $screen->post_type !== 'post') {
+		$enabled = false;
+	}
+
+	return $enabled;
+
+}, 10, 1);
+```
 
 == Installation ==
 
@@ -31,6 +49,9 @@ Leave your question in the support tab and I'll respond!
 1. Creating your admin notice
 
 == Changelog ==
+
+= 1.2 =
+* Enhancement: Adds `admin_notice_enable` filter.
 
 = 1.1 =
 * Enhancement: Renames notice styles to be in line with WordPress admin notice classes.

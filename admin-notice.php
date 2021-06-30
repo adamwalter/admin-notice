@@ -3,7 +3,7 @@
 	Plugin Name: Admin Notice
 	Plugin URI: https://github.com/adamwalter/admin-notice
 	Description: Displays a custom notice to all users in the admin area.
-	Version: 1.1
+	Version: 1.2
 	Requires at least: 5.4.1
 	Requires PHP: 7.0
 	Author: Adam Walter
@@ -311,7 +311,9 @@ class AGW_Admin_Notice {
 		$style = get_option('agw_admin_notice_style');
 		$class = "agw-admin-notice notice notice-{$style}";
 
-		if ($msg !== '' && $enabled === '1') {
+		$enabled = apply_filters('admin_notice_enable', $enabled);
+
+		if ($msg !== '' && boolval($enabled) === true) {
 
 			printf(
 				'<div class="%s"><p>%s</p></div>',
