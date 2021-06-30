@@ -311,7 +311,9 @@ class AGW_Admin_Notice {
 		$style = get_option('agw_admin_notice_style');
 		$class = "agw-admin-notice notice notice-{$style}";
 
-		if ($msg !== '' && $enabled === '1') {
+		$enabled = apply_filters('admin_notice_enable', $enabled);
+
+		if ($msg !== '' && boolval($enabled) === true) {
 
 			printf(
 				'<div class="%s"><p>%s</p></div>',
