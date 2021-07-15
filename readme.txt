@@ -2,7 +2,7 @@
 Contributors: adamwalter
 Tags: admin, backend, notice, alert
 Requires at least: 3.0.1
-Tested up to: 5.5
+Tested up to: 5.8
 Requires PHP: 7.0
 Stable tag: 1.2
 License: GPLv2
